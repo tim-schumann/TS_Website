@@ -1,0 +1,27 @@
+.slideshow {
+    width: 100%;
+    height: 500px;
+    position: relative;
+    background-size: 100%;
+    transition: background-size 3s ease-in-out;
+  }
+  
+  function nextImage() {
+    index++;
+    if (index >= images.length) {
+      index = 0;
+    }
+    const imageUrl = images[index];
+    const img = new Image();
+    img.src = imageUrl;
+    img.onload = function() {
+      const slideshow = document.querySelector('.slideshow');
+      slideshow.style.backgroundImage = `url(${imageUrl})`;
+      slideshow.style.backgroundSize = '120%';
+      setTimeout(() => {
+        slideshow.style.backgroundSize = '100%';
+        nextImage();
+      }, delay);
+    };
+  }
+  

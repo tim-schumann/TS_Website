@@ -40,3 +40,34 @@
   .ts-1 {
     margin: 0px;
   }
+
+  #heroimage-1 {
+    width:100%;
+    height:600px;
+    background: url('./images/covers/TS_Tetris_Living_Cover.jpg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size:cover;
+    background-attachment: fixed;
+    transition: background-size 3s ease-in-out;
+  }
+  #heroimage-2 {
+    width:100%;
+    height:600px;
+    background: url('./images/covers/TS_R_Lab_Cover.jpg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size:cover;
+    background-attachment: fixed;
+    transition: background-size 3s ease-in-out;
+  }
+  #heroimage-3 {
+    width:100%;
+    height:600px;
+    background: url('./images/covers/TS_Earthy_Cover.jpg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size:cover;
+    background-attachment: fixed;
+    transition: background-size 3s ease-in-out;
+  }
