@@ -71,3 +71,21 @@
     background-attachment: fixed;
     transition: background-size 3s ease-in-out;
   }
+
+  .carousel-inner .carousel-item > img {
+    margin: 0;
+    height: 80vh;
+    width: 100vw;
+    object-fit: cover;
+    -webkit-animation: thing 20s;
+    -o-animation: thing 20s;
+    animation: thing 20s; 
+  }
+  @keyframes thing {
+    from {
+       transform: scale(1, 1);
+    }
+    to {
+      transform: scale(1.2, 1.2);
+    }
+  }
