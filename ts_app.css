@@ -41,6 +41,13 @@
     margin: 0px;
   }
 
+#hero4 {
+  margin: 0;
+  height: 80vh;
+  width: 100vw;
+  object-fit: cover;
+}
+
   #hero1, #hero2, #hero3 {
     margin: 0;
     height: 80vh;
@@ -67,4 +74,8 @@
 
   .carousel-caption {
     color: black;
+  }
+
+  .carousel-caption h1, .carousel-caption p{
+    text-shadow: 0 0 12px #ffffff;
   }
