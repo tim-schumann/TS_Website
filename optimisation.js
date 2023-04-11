@@ -5,13 +5,13 @@ function labnolIframe(div) {
   var iframe = document.createElement("iframe");
   iframe.setAttribute(
     "src",
-    "https://www.youtube.com/embed/" + div.dataset.id + "?autoplay=1&rel=0"
+    "https://www.youtube.com/embed/" + div.dataset.id
   );
   iframe.setAttribute("frameborder", "0");
   iframe.setAttribute("allowfullscreen", "1");
   iframe.setAttribute(
     "allow",
-    "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+    "accelerometer; encrypted-media; gyroscope; picture-in-picture"
   );
   div.parentNode.replaceChild(iframe, div);
 }
