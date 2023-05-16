@@ -136,6 +136,9 @@
     cursor: pointer;
   }
   
+  .card {
+    transition: transform .2s;
+  }
   .card:hover {
-    background-color: #f9f9f9;
+    transform: scale(1.03);
   }
