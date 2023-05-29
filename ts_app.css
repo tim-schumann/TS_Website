@@ -1,3 +1,8 @@
+body {
+
+}
+
+
 .btn-primary {
     color: black;
     letter-spacing: 1px;
@@ -57,7 +62,7 @@
 
   #hero1, #hero2, #hero3 {
     margin: 0;
-    height: 80vh;
+    height: 100vh;
     width: 100vw;
     object-fit: cover;
     -webkit-animation: thing 20s;
@@ -72,6 +77,7 @@
       transform: scale(1.2, 1.2);
     }
   }
+
 
   a .mt-1{
     color: black;
@@ -150,3 +156,68 @@
     transform: scale(1.03);
   }
 
+  #preview1, #preview2, #preview3 {
+    width: 100%;
+    transition: transform .2s;
+    align-items: center;
+    animation: rotation 15s infinite linear;
+  }
+
+  #preview1:hover, #preview2:hover, #preview3:hover {
+    transform: scale(1.03);
+  }
+
+  .logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Adjust as needed */
+    transform: translate(-50%, -22%);
+  }
+
+  @media (min-width: 768px) {
+    .mainLogo, .ring1, .ring2 {
+      position: absolute;
+      height: 50%;
+      align-items: center;
+    }
+  }
+  
+
+
+/* new stuff */
+
+.ring1 {
+  animation: rotation 30s infinite linear;
+}
+
+.ring2 {
+  animation: rotation2 30s infinite linear;
+}
+
+
+  .mainLogo, .ring1, .ring2 {
+    position: absolute;
+    width: 100%;
+    /* transform: translate(-50%, -50%); */
+    align-items: center;
+    
+  }
+
+  @keyframes rotation {
+    
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(180deg);
+    }
+  }
+  @keyframes rotation2 {
+    0% {
+      transform: rotate(180deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
