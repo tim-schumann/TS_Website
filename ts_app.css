@@ -1,7 +1,14 @@
-body {
-
+.stretched-link {
+    background: transparent;
+    border: none !important;
+    font-size:0;
+    height: 0;
+    width: 0;
 }
 
+.badge {
+    color: rgb(226, 55, 55);
+}
 
 .btn-primary {
     color: black;
