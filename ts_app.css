@@ -6,6 +6,17 @@
     width: 0;
 }
 
+/* When the screen height is smaller than 500px */
+@media (max-height: 900px) {
+  @media (min-width: 1140px) {
+    .modal-xl {
+        max-width: 60%;  /* You can also adjust for .modal-xl */
+    }
+  }
+}
+
+
+
 .badge {
     color: rgb(226, 55, 55);
 }
