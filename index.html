@@ -316,7 +316,7 @@
         implementing modular design into projects and realizing parametric structures. </p>
       
       <button type="button" class="btn btn-dark rounded-5 mb-2" data-bs-toggle="modal"
-        data-bs-target="#AboutModal" data-url="mystory.html">read my full
+        data-bs-target="#StoryModal" data-url="mystory.html">read my full
         resumé</button>  
       <!-- 
       <a href="mystory.html" target=”_self” rel="noreferrer"><button class="btn btn-dark rounded-5 mb-2" type="button">read my full
@@ -536,13 +536,13 @@
 
   <!-- End Modal Gleamlink -->
 
-   <!-- Modal About -->
+   <!-- Modal Story -->
 
-   <div class="modal fade" id="AboutModal" tabindex="-1" aria-labelledby="AboutLabel" aria-hidden="true">
+   <div class="modal fade" id="StoryModal" tabindex="-1" aria-labelledby="StoryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
       <div class="modal-content">
         <div class="modal-header">
-          <h1 class="modal-title fs-5" id="GleamlinkModalLabel">My Resumé</h1>
+          <h1 class="modal-title fs-5" id="StoryModalLabel">My Resumé</h1>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -552,6 +552,24 @@
     </div>
   </div>
 
+  <!-- End Modal Story -->
+
+  <!-- Modal About -->
+
+     <div class="modal fade" id="AboutModal" tabindex="-1" aria-labelledby="AboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="AboutModalLabel">About</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- content from about.html-->
+          </div>
+        </div>
+      </div>
+    </div>
+  
   <!-- End Modal About -->
 
 
@@ -566,11 +584,18 @@
       </a>
 
       <ul class="nav col-md-4 justify-content-end align-self-center">
-        <li class="nav-item"><a href="about.html" class="nav-link px-2 text-muted">About</a></li>
+        <li class="nav-item"><a href="#" data-bs-toggle="modal"
+          data-bs-target="#AboutModal" data-url="about.html" class="nav-link px-2 text-muted">About</a></li>
         <li class="nav-item"><a href="#" class="nav-link px-2 text-muted">Version 0.8.1</a></li>
       </ul>
     </footer>
   </div>
+  <!-- 
+  <li class="nav-item"><a href="about.html" class="nav-link px-2 text-muted">About</a></li>
+  <button type="button" class="btn btn-dark rounded-5 mb-2" data-bs-toggle="modal"
+  data-bs-target="#StoryModal" data-url="mystory.html">read my full
+  resumé</button> 
+  -->
 
   <!-- end footer -->
 
