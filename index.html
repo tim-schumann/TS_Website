@@ -606,13 +606,16 @@
     integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous">
   </script>
 
+
+
+
 <script>
   // Add event listener for each modal to load content dynamically
   document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
     button.addEventListener('click', function () {
       // Get the modal ID from the button's data-bs-target attribute
       var modalId = this.getAttribute('data-bs-target');
-      
+
       // Get the URL of the content to load
       var contentUrl = this.getAttribute('data-url');
 

@@ -15,6 +15,42 @@
   }
 }
 
+/* Apply a blur effect to the body when the modal is active
+.modal-backdrop {
+  backdrop-filter: blur(20px);
+  background-color: transparent !important;
+}
+
+body.modal-open {
+  overflow: hidden; 
+}
+
+.blur-background {
+  filter: blur(8px); 
+}
+*/
+.modal-backdrop {
+  background-color: transparent !important;
+}
+
+body.modal-open {
+  overflow: hidden; /* Prevent scrolling */
+}
+
+body.modal-open::before {
+  content: ''; /* Make it an empty pseudo-element */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.3); /* Optional, you can adjust the transparency */
+  backdrop-filter: blur(6px); /* Apply blur to the entire background */
+  z-index: 1040; /* Ensure it's placed behind the modal */
+  pointer-events: none; /* Prevent it from blocking interactions */
+  opacity: 1; 
+  transition: opacity 0.5s ease, backdrop-filter 0.5s ease;
+}
 
 
 .badge {
