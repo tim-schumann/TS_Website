@@ -639,6 +639,19 @@
         });
     });
   });
+
+  // Add transition effect for modal background blur
+  document.addEventListener('DOMContentLoaded', () => {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+      modal.addEventListener('show.bs.modal', () => {
+        document.body.classList.add('modal-transition');
+      });
+      modal.addEventListener('hidden.bs.modal', () => {
+        document.body.classList.remove('modal-transition');
+      });
+    });
+  });
 </script>
 
 </body>
