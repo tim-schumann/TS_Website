@@ -1,4 +1,4 @@
-// liquid-background.js — enhanced: dynamic waves + blackout + respawn
+// liquid-background.js — cinematic explosion + gradual respawn + mobile tuning
 function initLiquidBackground() {
   const canvas = document.createElement("canvas");
   canvas.id = "liquid-bg";
@@ -21,13 +21,17 @@ function initLiquidBackground() {
   let W = (canvas.width = innerWidth);
   let H = (canvas.height = innerHeight);
 
-  // 🟢 Compute number of blobs based on area
+  const ua = navigator.userAgent || "";
+  const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua); // 🟢 Added
+
+  // 🟢 Adjusted: weaker attraction on mobile
+  const MOUSE_FORCE = isMobile ? 0.0004 : 0.001;
+
   function calcNumBlobs() {
     const area = W * H;
     return Math.max(20, Math.min(80, Math.round(area / 30000)));
   }
 
-  // 🟢 Blob data
   let blobs = [];
   function createBlob() {
     return {
@@ -60,7 +64,7 @@ function initLiquidBackground() {
 
   generateBlobs(calcNumBlobs());
 
-  // 🟢 Offscreen setup
+  // Offscreen setup
   let SIM_W = 360;
   let SIM_H = Math.round(SIM_W * (H / W));
   const off = document.createElement("canvas");
@@ -85,8 +89,6 @@ function initLiquidBackground() {
     generateBlobs(calcNumBlobs());
   });
 
-  // Browser detection
-  const ua = navigator.userAgent || "";
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
   const isFirefox = /firefox/i.test(ua);
   const BLUR_LOW = isSafari ? 35 : isFirefox ? 3 : 1;
@@ -98,10 +100,11 @@ function initLiquidBackground() {
     mouse.y = e.clientY;
   });
 
-  // 🟢 Explosion state
+  // Explosion + blackout system
   let explosion = null;
-  let blackoutPhase = 0; // 0 = none, 1 = darkening, 2 = fading back
+  let blackoutPhase = 0;
   let blackoutAlpha = 0;
+  let respawnTimer = null; // 🟢 Added
 
   function startExplosion(x, y) {
     explosion = {
@@ -109,10 +112,8 @@ function initLiquidBackground() {
       y,
       t: 0,
       waves: [],
-      duration: 3, // seconds total for waves before blackout
+      duration: 3,
     };
-
-    // 5 expanding waves
     for (let i = 0; i < 5; i++) {
       explosion.waves.push({
         r: 80 + i * 40,
@@ -121,14 +122,11 @@ function initLiquidBackground() {
         decay: 0.25 + i * 0.05,
       });
     }
-
-    // 🟢 trigger blackout transition
     setTimeout(() => {
       blackoutPhase = 1; // start darkening
-    }, 1000); // wait 1s for waves to begin before darkening
+    }, 1000);
   }
 
-  // 🟢 Draw offscreen, including explosion and blackout overlay
   function drawOffscreen() {
     const sx = SIM_W / W;
     const sy = SIM_H / H;
@@ -160,7 +158,6 @@ function initLiquidBackground() {
       offCtx.fill();
     }
 
-    // Draw explosion waves
     if (explosion) {
       for (const w of explosion.waves) {
         const cx = explosion.x * s;
@@ -182,7 +179,6 @@ function initLiquidBackground() {
       }
     }
 
-    // 🟢 Blackout overlay
     if (blackoutPhase > 0) {
       offCtx.fillStyle = `rgba(0,0,0,${blackoutAlpha})`;
       offCtx.fillRect(0, 0, SIM_W, SIM_H);
@@ -212,25 +208,31 @@ function initLiquidBackground() {
   function stepPhysics(dt) {
     time += dt;
 
-    // 🟢 Handle blackout fade logic
     if (blackoutPhase === 1) {
-      blackoutAlpha += dt * 0.5; // darken
+      blackoutAlpha += dt * 0.5;
       if (blackoutAlpha >= 1) {
         blackoutAlpha = 1;
         blackoutPhase = 2;
-        // stay black for ~2s, then fade back
         setTimeout(() => {
-          blackoutPhase = 3; // start brightening
+          blackoutPhase = 3;
         }, 2000);
       }
       return;
     } else if (blackoutPhase === 3) {
-      blackoutAlpha -= dt * 0.5; // fade back to white
+      blackoutAlpha -= dt * 0.5;
       if (blackoutAlpha <= 0) {
         blackoutAlpha = 0;
         blackoutPhase = 0;
-        // 🟢 Respawn blobs after fade back
-        generateBlobs(calcNumBlobs());
+
+        // 🟢 Gradual respawn over 3s
+        if (respawnTimer) clearInterval(respawnTimer);
+        const total = calcNumBlobs();
+        let spawned = 0;
+        respawnTimer = setInterval(() => {
+          blobs.push(createBlob());
+          spawned++;
+          if (spawned >= total) clearInterval(respawnTimer);
+        }, (3000 / total));
       }
       return;
     }
@@ -242,20 +244,17 @@ function initLiquidBackground() {
         w.alpha -= w.decay * dt;
       }
       explosion.waves = explosion.waves.filter((w) => w.alpha > 0);
-      if (explosion.t > explosion.duration) {
-        explosion = null; // waves done
-      }
+      if (explosion.t > explosion.duration) explosion = null;
       return;
     }
 
-    // Regular blob physics
     for (const b of blobs) {
       const dx = mouse.x - b.x;
       const dy = mouse.y - b.y;
       const dist2 = dx * dx + dy * dy;
       const influence = Math.exp(-dist2 / 20000);
-      b.vx += dx * 0.001 * influence;
-      b.vy += dy * 0.001 * influence;
+      b.vx += dx * MOUSE_FORCE * influence;
+      b.vy += dy * MOUSE_FORCE * influence;
       b.vx += Math.cos(b.driftPhase + time * b.driftSpeed) * 0.002;
       b.vy += Math.sin(b.driftPhase + time * b.driftSpeed) * 0.002;
       b.vx *= 0.96;
@@ -268,7 +267,6 @@ function initLiquidBackground() {
       if (b.y > H + 60) b.y = H + 60, b.vy *= -0.6;
     }
 
-    // 🟢 Detect fusion event
     if (blobs.length > 3) {
       const avgX = blobs.reduce((a, b) => a + b.x, 0) / blobs.length;
       const avgY = blobs.reduce((a, b) => a + b.y, 0) / blobs.length;
@@ -296,7 +294,6 @@ function initLiquidBackground() {
   requestAnimationFrame(loop);
 }
 
-// auto initialize
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", initLiquidBackground);
 } else {
