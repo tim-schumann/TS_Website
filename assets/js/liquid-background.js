@@ -1,4 +1,4 @@
-// liquid-background.js — cinematic explosion + gradual respawn + mobile tuning
+// liquid-background.js — refined mobile behavior + safe margins + smaller blobs
 function initLiquidBackground() {
   const canvas = document.createElement("canvas");
   canvas.id = "liquid-bg";
@@ -23,9 +23,11 @@ function initLiquidBackground() {
 
   const ua = navigator.userAgent || "";
   const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua); // 🟢 Added
-
-  // 🟢 Adjusted: weaker attraction on mobile
   const MOUSE_FORCE = isMobile ? 0.0004 : 0.001;
+
+  // 🟢 Blobs on phones: smaller + inner margins
+  const MOBILE_RADIUS_SCALE = isMobile ? 0.7 : 1;
+  const MOBILE_MARGIN = isMobile ? 0.1 : 0; // 10% screen margin inside edges
 
   function calcNumBlobs() {
     const area = W * H;
@@ -34,12 +36,17 @@ function initLiquidBackground() {
 
   let blobs = [];
   function createBlob() {
+    const marginX = W * MOBILE_MARGIN;
+    const marginY = H * MOBILE_MARGIN;
+    const x = marginX + Math.random() * (W - marginX * 2);
+    const y = marginY + Math.random() * (H - marginY * 2);
+    const baseR = 24 + Math.random() * 48;
     return {
-      x: Math.random() * W,
-      y: Math.random() * H,
+      x,
+      y,
       vx: (Math.random() - 0.5) * 1.2,
       vy: (Math.random() - 0.5) * 1.2,
-      r: 24 + Math.random() * 48,
+      r: baseR * MOBILE_RADIUS_SCALE, // 🟢 smaller on mobile
       brightness: 0.45 + Math.random() * 0.35,
       driftPhase: Math.random() * Math.PI * 2,
       driftSpeed: 0.05 + Math.random() * 0.12,
@@ -91,8 +98,8 @@ function initLiquidBackground() {
 
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
   const isFirefox = /firefox/i.test(ua);
-  const BLUR_LOW = isSafari ? 35 : isFirefox ? 3 : 1;
-  const BLUR_UP = isSafari ? 60 : isFirefox ? 5 : 3;
+  const BLUR_LOW = isSafari ? 35 : isFirefox ? 2 : 0.5;
+  const BLUR_UP = isSafari ? 60 : isFirefox ? 4 : 2;
 
   const mouse = { x: W / 2, y: H / 2 };
   window.addEventListener("mousemove", (e) => {
@@ -100,11 +107,11 @@ function initLiquidBackground() {
     mouse.y = e.clientY;
   });
 
-  // Explosion + blackout system
+  // Explosion + blackout
   let explosion = null;
   let blackoutPhase = 0;
   let blackoutAlpha = 0;
-  let respawnTimer = null; // 🟢 Added
+  let respawnTimer = null;
 
   function startExplosion(x, y) {
     explosion = {
@@ -123,7 +130,7 @@ function initLiquidBackground() {
       });
     }
     setTimeout(() => {
-      blackoutPhase = 1; // start darkening
+      blackoutPhase = 1;
     }, 1000);
   }
 
@@ -223,8 +230,6 @@ function initLiquidBackground() {
       if (blackoutAlpha <= 0) {
         blackoutAlpha = 0;
         blackoutPhase = 0;
-
-        // 🟢 Gradual respawn over 3s
         if (respawnTimer) clearInterval(respawnTimer);
         const total = calcNumBlobs();
         let spawned = 0;
@@ -232,7 +237,7 @@ function initLiquidBackground() {
           blobs.push(createBlob());
           spawned++;
           if (spawned >= total) clearInterval(respawnTimer);
-        }, (3000 / total));
+        }, 3000 / total);
       }
       return;
     }
