@@ -1,3 +1,8 @@
+html {
+  scroll-behavior: smooth;
+}
+
+
 .stretched-link {
     background: transparent;
     border: none !important;
@@ -278,3 +283,213 @@ body.modal-open.modal-transition::before {
       transform: rotate(0deg);
     }
   }
+
+#liquid-bg {
+  opacity: 0;
+  animation: fadeInBg 1.5s ease forwards;
+}
+@keyframes fadeInBg {
+  to { opacity: 1; }
+}
+
+
+main, nav, footer {
+  position: relative;
+  z-index: 1;
+}
+
+    /* === Canvas background === */
+    #liquid-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -2;
+      pointer-events: none;
+      transition: opacity 0.2s linear;
+      /* background: #fff; */
+    }
+
+
+/* --- Start Section --- */
+.start-section {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Shared menu style --- */
+.pill-container {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  padding: 0.0rem 0.0rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+
+.logo-img {
+  height: 100%;
+  width: auto;
+}
+
+.logo-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+
+/* Center logo absolute center with space for left/right buttons */
+.menu-container {
+  position: relative;
+  width: 100%;
+}
+
+
+
+    /* Smooth scroll fade */
+    main {
+      background: white;
+      z-index: 1;
+      position: relative;
+      padding-top: 6rem;
+    }
+
+    #liquid-overlay {
+  position: fixed;
+  inset: 0;
+  background: white;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0; /* fully transparent initially */
+  transition: opacity 0.1s linear;
+}
+
+
+.pill-btn {
+  border: none;
+  background: none;
+  color: #000;
+  font-size: 1.1rem;
+  font-weight: 400;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.order-4 .pill-btn {
+    margin-right: 1.25rem !important;
+  }
+
+/* Bold only for "tim schumann" */
+.name-btn {
+  font-weight: 700;
+  margin-left: 0.0rem;
+}
+
+.logo-btn {
+  margin-right: 0.0rem;
+}
+
+
+/* --- Hover effect: scale logo and text --- */
+.pill-btn:hover,
+.pill-btn:hover .logo-img {
+  transform: scale(1.05);
+}
+
+/* --- Logo --- */
+.logo-img {
+  height: 50px;
+  width: auto;
+  transition: transform 0.25s ease;
+}
+
+/* --- Fixed duplicate --- */
+.fixed-menu {
+  position: fixed;
+  top: 2mm; /* stays slightly below top */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* When visible */
+.fixed-menu.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+
+@media (max-width: 768px) {
+  /* Keep items in a horizontal line */
+  .pill-container {
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    padding: 0.0rem 0.0rem;
+  }
+
+  /* Hide the extra menu items */
+  .order-3,
+  .order-4 {
+    display: none !important;
+  }
+
+  /* Adjust spacing and sizing */
+  .pill-btn {
+    font-size: 1rem;
+  }
+
+  .logo-img {
+    height: 40px;
+  }
+
+  /* Slightly tighter gap between logo and name */
+  .order-1 .pill-btn {
+    margin-left: 0.25rem !important;
+  }
+
+  .order-2 .pill-btn {
+    margin-right: 1.25rem !important;
+  }
+}
+
+#work, #values, #contact, #about {
+  scroll-margin-top: 80px; /* adjust to match your menu height */
+}
+
+/* --- Scroll hint text --- */
+.scroll-hint {
+  position: absolute;
+  bottom: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1rem;
+  color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+/* Fade-in state */
+.scroll-hint.visible {
+  opacity: 1;
+}
+
+/* Fade-out when hiding */
+.scroll-hint.hidden {
+  opacity: 0;
+}
