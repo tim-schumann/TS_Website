@@ -328,6 +328,8 @@ main, nav, footer {
   padding: 0.0rem 0.0rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   transition: opacity 0.4s ease, transform 0.4s ease;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
 }
 
 
@@ -383,6 +385,9 @@ main, nav, footer {
   align-items: center;
   justify-content: center;
   transition: transform 0.25s ease;
+  white-space: nowrap;
+  min-width: auto;
+  flex-shrink: 0;
 }
 
 .order-4 .pill-btn {
