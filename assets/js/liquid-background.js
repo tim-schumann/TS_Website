@@ -1,4 +1,4 @@
-// liquid-background.js — refined mobile behavior + safe margins + smaller blobs
+// liquid-background.js — perfected mobile visuals + enhanced explosion core
 function initLiquidBackground() {
   const canvas = document.createElement("canvas");
   canvas.id = "liquid-bg";
@@ -22,12 +22,14 @@ function initLiquidBackground() {
   let H = (canvas.height = innerHeight);
 
   const ua = navigator.userAgent || "";
-  const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua); // 🟢 Added
-  const MOUSE_FORCE = isMobile ? 0.0004 : 0.001;
+  const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua);
 
-  // 🟢 Blobs on phones: smaller + inner margins
+  // 🟢 Mobile tuning: very low gravity
+  const MOUSE_FORCE = isMobile ? 0.00015 : 0.001;
+
+  // 🟢 Mobile scaling adjustments
   const MOBILE_RADIUS_SCALE = isMobile ? 0.7 : 1;
-  const MOBILE_MARGIN = isMobile ? 0.1 : 0; // 10% screen margin inside edges
+  const MOBILE_MARGIN = isMobile ? 0.1 : 0;
 
   function calcNumBlobs() {
     const area = W * H;
@@ -46,7 +48,7 @@ function initLiquidBackground() {
       y,
       vx: (Math.random() - 0.5) * 1.2,
       vy: (Math.random() - 0.5) * 1.2,
-      r: baseR * MOBILE_RADIUS_SCALE, // 🟢 smaller on mobile
+      r: baseR * MOBILE_RADIUS_SCALE,
       brightness: 0.45 + Math.random() * 0.35,
       driftPhase: Math.random() * Math.PI * 2,
       driftSpeed: 0.05 + Math.random() * 0.12,
@@ -98,8 +100,8 @@ function initLiquidBackground() {
 
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
   const isFirefox = /firefox/i.test(ua);
-  const BLUR_LOW = isSafari ? 35 : isFirefox ? 2 : 0.5;
-  const BLUR_UP = isSafari ? 60 : isFirefox ? 4 : 2;
+  const BLUR_LOW = isSafari ? 35 : isFirefox ? 3 : 1;
+  const BLUR_UP = isSafari ? 60 : isFirefox ? 5 : 3;
 
   const mouse = { x: W / 2, y: H / 2 };
   window.addEventListener("mousemove", (e) => {
@@ -118,14 +120,16 @@ function initLiquidBackground() {
       x,
       y,
       t: 0,
+      core: { r: 80, alpha: 0.7 }, // 🟢 Added: initial dark blurry core
       waves: [],
       duration: 3,
     };
+    // 🟢 Add 5 waves radiating out
     for (let i = 0; i < 5; i++) {
       explosion.waves.push({
-        r: 80 + i * 40,
-        speed: 300 + i * 150,
-        alpha: 0.6 - i * 0.1,
+        r: 120 + i * 60,
+        speed: 250 + i * 120,
+        alpha: 0.5 - i * 0.08,
         decay: 0.25 + i * 0.05,
       });
     }
@@ -137,7 +141,7 @@ function initLiquidBackground() {
   function drawOffscreen() {
     const sx = SIM_W / W;
     const sy = SIM_H / H;
-    const s = Math.min(sx, sy);
+    const s = Math.min(sx, sy); // 🟢 Uniform scaling for perfect roundness
 
     offCtx.clearRect(0, 0, SIM_W, SIM_H);
     offCtx.fillStyle = "rgba(255,255,255,1)";
@@ -166,9 +170,20 @@ function initLiquidBackground() {
     }
 
     if (explosion) {
+      const cx = explosion.x * s;
+      const cy = explosion.y * s;
+
+      // 🟢 Draw explosion core first (dark, blurry center)
+      const coreGrad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, explosion.core.r * s);
+      coreGrad.addColorStop(0, `rgba(0,0,0,${explosion.core.alpha})`);
+      coreGrad.addColorStop(1, `rgba(0,0,0,0)`);
+      offCtx.fillStyle = coreGrad;
+      offCtx.beginPath();
+      offCtx.arc(cx, cy, explosion.core.r * s, 0, Math.PI * 2);
+      offCtx.fill();
+
+      // Then draw waves
       for (const w of explosion.waves) {
-        const cx = explosion.x * s;
-        const cy = explosion.y * s;
         const grad = offCtx.createRadialGradient(
           cx,
           cy,
@@ -244,6 +259,8 @@ function initLiquidBackground() {
 
     if (explosion) {
       explosion.t += dt;
+      explosion.core.r += 250 * dt;
+      explosion.core.alpha -= dt * 0.3;
       for (const w of explosion.waves) {
         w.r += w.speed * dt;
         w.alpha -= w.decay * dt;
