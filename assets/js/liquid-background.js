@@ -1,4 +1,4 @@
-// liquid-background.js — perfected mobile visuals + enhanced explosion core
+// liquid-background.js — largest-blob black-out explosion + per-browser gravity + mobile fixes
 function initLiquidBackground() {
   const canvas = document.createElement("canvas");
   canvas.id = "liquid-bg";
@@ -18,19 +18,28 @@ function initLiquidBackground() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
+  // ───────────────────────────────── Device/Browser flags
+  const ua = navigator.userAgent || "";
+  const isMobile  = /mobile|android|iphone|ipad|ipod/i.test(ua);
+  const isSafari  = /^((?!chrome|android).)*safari/i.test(ua);
+  const isChrome  = /crios|chrome|chromium/i.test(ua);
+  const isFirefox = /firefox/i.test(ua);
+
   let W = (canvas.width = innerWidth);
   let H = (canvas.height = innerHeight);
 
-  const ua = navigator.userAgent || "";
-  const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua);
+  // 🟢 Per-browser/OS mouse gravity
+  let MOUSE_FORCE;
+  if (isMobile && isSafari) MOUSE_FORCE = 0.00008;                 // iOS Safari (very gentle)
+  else if (isMobile && isChrome) MOUSE_FORCE = 0.00025;             // iOS Chrome (a bit stronger)
+  else if (!isMobile && isChrome) MOUSE_FORCE = 0.0006;             // 🟢 Desktop Chrome reduced
+  else MOUSE_FORCE = 0.001;                                         // Desktop Safari/others unchanged
 
-  // 🟢 Mobile tuning: very low gravity
-  const MOUSE_FORCE = isMobile ? 0.00015 : 0.001;
+  // 🟢 Mobile visual tuning
+  const MOBILE_RADIUS_SCALE = isMobile ? 0.7 : 1;                   // 30% smaller on phones
+  const MOBILE_MARGIN = isMobile ? 0.1 : 0;                         // 10% safe margin on phones
 
-  // 🟢 Mobile scaling adjustments
-  const MOBILE_RADIUS_SCALE = isMobile ? 0.7 : 1;
-  const MOBILE_MARGIN = isMobile ? 0.1 : 0;
-
+  // ───────────────────────────────── Counts and blobs
   function calcNumBlobs() {
     const area = W * H;
     return Math.max(20, Math.min(80, Math.round(area / 30000)));
@@ -44,8 +53,7 @@ function initLiquidBackground() {
     const y = marginY + Math.random() * (H - marginY * 2);
     const baseR = 24 + Math.random() * 48;
     return {
-      x,
-      y,
+      x, y,
       vx: (Math.random() - 0.5) * 1.2,
       vy: (Math.random() - 0.5) * 1.2,
       r: baseR * MOBILE_RADIUS_SCALE,
@@ -73,7 +81,13 @@ function initLiquidBackground() {
 
   generateBlobs(calcNumBlobs());
 
-  // Offscreen setup
+  // 🟢 iOS stretch fix: force a pixel-perfect redraw right after load
+  setTimeout(() => {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+  }, 300);
+
+  // ───────────────────────────────── Offscreen buffers
   let SIM_W = 360;
   let SIM_H = Math.round(SIM_W * (H / W));
   const off = document.createElement("canvas");
@@ -88,7 +102,6 @@ function initLiquidBackground() {
     tmp.width = SIM_W;
     tmp.height = SIM_H;
   }
-
   updateOffscreenSizes();
 
   window.addEventListener("resize", () => {
@@ -98,10 +111,8 @@ function initLiquidBackground() {
     generateBlobs(calcNumBlobs());
   });
 
-  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-  const isFirefox = /firefox/i.test(ua);
   const BLUR_LOW = isSafari ? 35 : isFirefox ? 3 : 1;
-  const BLUR_UP = isSafari ? 60 : isFirefox ? 5 : 3;
+  const BLUR_UP  = isSafari ? 60 : isFirefox ? 5 : 3;
 
   const mouse = { x: W / 2, y: H / 2 };
   window.addEventListener("mousemove", (e) => {
@@ -109,56 +120,54 @@ function initLiquidBackground() {
     mouse.y = e.clientY;
   });
 
-  // Explosion + blackout
-  let explosion = null;
-  let blackoutPhase = 0;
+  // ───────────────────────────────── Explosion via LARGEST blob
+  // phases: null -> 'grow' (largest blob expands & darkens) -> blackout hold -> fade white -> respawn
+  let explosion = null; // { index, targetR, growthRate }
+  let blackoutPhase = 0; // 0 none, 1 holding black, 2 fading to white
   let blackoutAlpha = 0;
   let respawnTimer = null;
 
-  function startExplosion(x, y) {
+  function startLargestBlobExplosion() { // 🟢
+    if (!blobs.length) return;
+    // pick largest blob (by radius)
+    let idx = 0;
+    for (let i = 1; i < blobs.length; i++) if (blobs[i].r > blobs[idx].r) idx = i;
+    const b = blobs[idx];
+
+    // don't remove other blobs — they stay visible until the largest covers the screen
+    const coverR = Math.hypot(W, H); // rough world-space diagonal; draw uses soften*1.5 so this is generous
     explosion = {
-      x,
-      y,
-      t: 0,
-      core: { r: 80, alpha: 0.7 }, // 🟢 Added: initial dark blurry core
-      waves: [],
-      duration: 3,
+      index: idx,
+      targetR: coverR,          // when its radius exceeds this, we consider screen "filled"
+      growthRate: 1.9,          // exponential growth factor per second
+      active: true
     };
-    // 🟢 Add 5 waves radiating out
-    for (let i = 0; i < 5; i++) {
-      explosion.waves.push({
-        r: 120 + i * 60,
-        speed: 250 + i * 120,
-        alpha: 0.5 - i * 0.08,
-        decay: 0.25 + i * 0.05,
-      });
-    }
-    setTimeout(() => {
-      blackoutPhase = 1;
-    }, 1000);
+    // boost its darkness smoothly
+    b.targetAlpha = 1.0;
+    b.brightness = Math.min(1.0, b.brightness + 0.25); // darker center
   }
 
+  // ───────────────────────────────── Draw pipeline
   function drawOffscreen() {
     const sx = SIM_W / W;
     const sy = SIM_H / H;
-    const s = Math.min(sx, sy); // 🟢 Uniform scaling for perfect roundness
+    const s  = Math.min(sx, sy); // uniform scale: keeps circles perfectly round
 
     offCtx.clearRect(0, 0, SIM_W, SIM_H);
     offCtx.fillStyle = "rgba(255,255,255,1)";
     offCtx.fillRect(0, 0, SIM_W, SIM_H);
 
-    for (const b of blobs) {
+    // draw all blobs (largest will be drawn again if exploding to ensure dominance)
+    for (let i = 0; i < blobs.length; i++) {
+      const b = blobs[i];
       b.alpha += (b.targetAlpha - b.alpha) * 0.05;
-      if (b.isDying && b.alpha < 0.02) {
-        blobs.splice(blobs.indexOf(b), 1);
-        continue;
-      }
+      if (b.isDying && b.alpha < 0.02) { blobs.splice(i, 1); i--; continue; }
 
-      const cx = b.x * s;
-      const cy = b.y * s;
+      const cx = b.x * s, cy = b.y * s;
       const rr = Math.max(8, b.r * s * 1.5);
       const innerAlpha = b.brightness * b.alpha;
       const midAlpha = Math.max(0.18, innerAlpha - 0.15);
+
       const grad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, rr);
       grad.addColorStop(0, `rgba(0,0,0,${innerAlpha})`);
       grad.addColorStop(0.45, `rgba(0,0,0,${midAlpha})`);
@@ -169,39 +178,26 @@ function initLiquidBackground() {
       offCtx.fill();
     }
 
-    if (explosion) {
-      const cx = explosion.x * s;
-      const cy = explosion.y * s;
+    // 🟢 If exploding, over-draw the largest blob with intensified darkness & (now bigger) radius
+    if (explosion && explosion.active && blobs[explosion.index]) {
+      const b = blobs[explosion.index];
+      const cx = b.x * s, cy = b.y * s;
+      const rr = Math.max(8, b.r * s * 1.5);
+      const innerAlpha = Math.min(1.0, (b.brightness + 0.4) * (b.alpha + 0.3)); // extra dark
+      const midAlpha = Math.max(0.25, innerAlpha - 0.1);
 
-      // 🟢 Draw explosion core first (dark, blurry center)
-      const coreGrad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, explosion.core.r * s);
-      coreGrad.addColorStop(0, `rgba(0,0,0,${explosion.core.alpha})`);
-      coreGrad.addColorStop(1, `rgba(0,0,0,0)`);
-      offCtx.fillStyle = coreGrad;
+      const grad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+      grad.addColorStop(0, `rgba(0,0,0,${innerAlpha})`);
+      grad.addColorStop(0.45, `rgba(0,0,0,${midAlpha})`);
+      grad.addColorStop(1, `rgba(0,0,0,0)`);
+      offCtx.fillStyle = grad;
       offCtx.beginPath();
-      offCtx.arc(cx, cy, explosion.core.r * s, 0, Math.PI * 2);
+      offCtx.arc(cx, cy, rr, 0, Math.PI * 2);
       offCtx.fill();
-
-      // Then draw waves
-      for (const w of explosion.waves) {
-        const grad = offCtx.createRadialGradient(
-          cx,
-          cy,
-          w.r * s * 0.2,
-          cx,
-          cy,
-          w.r * s
-        );
-        grad.addColorStop(0, `rgba(0,0,0,${w.alpha})`);
-        grad.addColorStop(1, `rgba(0,0,0,0)`);
-        offCtx.fillStyle = grad;
-        offCtx.beginPath();
-        offCtx.arc(cx, cy, w.r * s, 0, Math.PI * 2);
-        offCtx.fill();
-      }
     }
 
-    if (blackoutPhase > 0) {
+    // Blackout overlay
+    if (blackoutPhase > 0 || blackoutAlpha > 0) {
       offCtx.fillStyle = `rgba(0,0,0,${blackoutAlpha})`;
       offCtx.fillRect(0, 0, SIM_W, SIM_H);
     }
@@ -226,25 +222,20 @@ function initLiquidBackground() {
     ctx.restore();
   }
 
+  // ───────────────────────────────── Physics + Explosion control
   let time = 0;
   function stepPhysics(dt) {
     time += dt;
 
-    if (blackoutPhase === 1) {
-      blackoutAlpha += dt * 0.5;
-      if (blackoutAlpha >= 1) {
-        blackoutAlpha = 1;
-        blackoutPhase = 2;
-        setTimeout(() => {
-          blackoutPhase = 3;
-        }, 2000);
-      }
+    // Handle fading/respawn phases
+    if (blackoutPhase === 1) { // holding black, do nothing (stay black)
       return;
-    } else if (blackoutPhase === 3) {
+    } else if (blackoutPhase === 2) { // fading back to white
       blackoutAlpha -= dt * 0.5;
       if (blackoutAlpha <= 0) {
         blackoutAlpha = 0;
         blackoutPhase = 0;
+        // Gradual respawn over 3 seconds
         if (respawnTimer) clearInterval(respawnTimer);
         const total = calcNumBlobs();
         let spawned = 0;
@@ -257,19 +248,31 @@ function initLiquidBackground() {
       return;
     }
 
-    if (explosion) {
-      explosion.t += dt;
-      explosion.core.r += 250 * dt;
-      explosion.core.alpha -= dt * 0.3;
-      for (const w of explosion.waves) {
-        w.r += w.speed * dt;
-        w.alpha -= w.decay * dt;
+    // Explosion grow phase driven by largest blob
+    if (explosion && explosion.active && blobs[explosion.index]) {
+      const b = blobs[explosion.index];
+      // exponential growth toward target
+      b.r = b.r * (1 + explosion.growthRate * dt);
+      b.brightness = Math.min(1.15, b.brightness + 0.4 * dt); // keep darkening a bit
+      b.targetAlpha = 1.0;
+
+      // progressively ramp blackoutAlpha as radius approaches target (feels seamless)
+      const progress = Math.min(1, b.r / explosion.targetR);
+      blackoutAlpha = Math.max(blackoutAlpha, progress); // 0 → 1
+
+      if (b.r >= explosion.targetR) {
+        // fully black; hold for ~2s, then fade back and respawn
+        blackoutAlpha = 1;
+        explosion.active = false;
+        // Hide everything beneath black to avoid artifacts
+        blobs = [];
+        blackoutPhase = 1;
+        setTimeout(() => { blackoutPhase = 2; }, 2000);
       }
-      explosion.waves = explosion.waves.filter((w) => w.alpha > 0);
-      if (explosion.t > explosion.duration) explosion = null;
-      return;
+      return; // pause normal physics while exploding
     }
 
+    // Regular blob motion
     for (const b of blobs) {
       const dx = mouse.x - b.x;
       const dy = mouse.y - b.y;
@@ -283,47 +286,42 @@ function initLiquidBackground() {
       b.vy *= 0.96;
       b.x += b.vx;
       b.y += b.vy;
+
+      // containment
       if (b.x < -60) b.x = -60, b.vx *= -0.6;
       if (b.x > W + 60) b.x = W + 60, b.vx *= -0.6;
       if (b.y < -60) b.y = -60, b.vy *= -0.6;
       if (b.y > H + 60) b.y = H + 60, b.vy *= -0.6;
     }
 
-    if (blobs.length > 3) {
+    // Fusion trigger: when all blobs are clustered, start the LARGEST-blob explosion
+    if (!explosion && blobs.length > 3) {
       const avgX = blobs.reduce((a, b) => a + b.x, 0) / blobs.length;
       const avgY = blobs.reduce((a, b) => a + b.y, 0) / blobs.length;
-      const maxDist = Math.max(
-        ...blobs.map((b) => Math.hypot(b.x - avgX, b.y - avgY))
-      );
-      if (maxDist < 80) {
-        blobs = [];
-        startExplosion(avgX, avgY);
-      }
+      const maxDist = Math.max(...blobs.map(b => Math.hypot(b.x - avgX, b.y - avgY)));
+      if (maxDist < 80) startLargestBlobExplosion(); // 🟢
     }
   }
 
+  // ───────────────────────────────── Main loop
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+
     stepPhysics(dt);
     drawOffscreen();
     lowResBlur();
     compositeToScreen();
+
     window.liquidRAF = requestAnimationFrame(loop);
   }
-
   requestAnimationFrame(loop);
 }
 
+// auto initialize
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", initLiquidBackground);
 } else {
   initLiquidBackground();
-  try {
-    window.liquidBgCanvas = canvas;
-    window.liquidCtx = ctx;
-  } catch (e) {
-    console.warn("Could not expose liquid background context:", e);
-  }
 }
