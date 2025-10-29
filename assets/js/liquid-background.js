@@ -28,16 +28,57 @@ function initLiquidBackground() {
   let W = (canvas.width = innerWidth);
   let H = (canvas.height = innerHeight);
 
-  // 🟢 Per-browser/OS mouse gravity
-  let MOUSE_FORCE;
-  if (isMobile && isSafari) MOUSE_FORCE = 0.00008;                 // iOS Safari (very gentle)
-  else if (isMobile && isChrome) MOUSE_FORCE = 0.00025;             // iOS Chrome (a bit stronger)
-  else if (!isMobile && isChrome) MOUSE_FORCE = 0.0006;             // 🟢 Desktop Chrome reduced
-  else MOUSE_FORCE = 0.001;                                         // Desktop Safari/others unchanged
+  // 🟢 Adaptive gravity and blob scaling per device/screen
+let baseForce = 0.001;
 
-  // 🟢 Mobile visual tuning
-  const MOBILE_RADIUS_SCALE = isMobile ? 0.7 : 1;                   // 30% smaller on phones
-  const MOBILE_MARGIN = isMobile ? 0.1 : 0;                         // 10% safe margin on phones
+// detect platform
+const isMobileSafari  = isMobile && isSafari;
+const isMobileChrome  = isMobile && isChrome;
+const isDesktopChrome = !isMobile && isChrome;
+
+// ───────────────────────────────
+// BASE GRAVITY by browser type
+if (isMobileSafari) baseForce = 0.00008;
+else if (isMobileChrome) baseForce = 0.00025;
+else if (isDesktopChrome) baseForce = 0.003;
+else baseForce = 0.001; // Safari / Firefox / others desktop
+
+// ───────────────────────────────
+// SCALE with screen size
+// → tuned so 14" (≈ 1500 px width) feels “perfect”
+const refWidth = 1500; // reference width (your 14" sweet spot)
+const scaleFactor = Math.min(1.5, Math.max(0.7, innerWidth / refWidth));
+
+// adjust blob size + gravity for very large displays
+let GRAVITY_SCALE = scaleFactor;  // more space ⇒ slightly stronger pull
+let SIZE_SCALE    = scaleFactor;  // bigger screens ⇒ proportionally bigger blobs
+
+// clamp for sanity (no extreme values)
+GRAVITY_SCALE = Math.min(1.5, Math.max(0.7, GRAVITY_SCALE));
+SIZE_SCALE    = Math.min(1.5, Math.max(0.7, SIZE_SCALE));
+
+// final gravity
+let MOUSE_FORCE = baseForce * GRAVITY_SCALE;
+
+// ───────────────────────────────
+// Touch-activation: on phones only increase gravity after user tap/click
+if (isMobile) {
+  let touchActive = false;
+  window.addEventListener("pointerdown", () => {
+    touchActive = true;
+    MOUSE_FORCE = baseForce * GRAVITY_SCALE * 1.25; // +25% stronger after touch
+  });
+  window.addEventListener("pointerup", () => {
+    touchActive = false;
+    MOUSE_FORCE = baseForce * GRAVITY_SCALE;        // reset
+  });
+}
+
+// ───────────────────────────────
+// apply blob size scaling globally
+const MOBILE_RADIUS_SCALE = (isMobile ? 0.7 : 1) * SIZE_SCALE;
+const MOBILE_MARGIN       = isMobile ? 0.1 : 0;
+
 
   // ───────────────────────────────── Counts and blobs
   function calcNumBlobs() {
