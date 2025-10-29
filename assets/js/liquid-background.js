@@ -66,7 +66,7 @@ if (isMobile) {
   let touchActive = false;
   window.addEventListener("pointerdown", () => {
     touchActive = true;
-    MOUSE_FORCE = baseForce * GRAVITY_SCALE * 1.25; // +25% stronger after touch
+    MOUSE_FORCE = baseForce * GRAVITY_SCALE * 3; // +200% stronger after touch
   });
   window.addEventListener("pointerup", () => {
     touchActive = false;
@@ -83,7 +83,7 @@ const MOBILE_MARGIN       = isMobile ? 0.1 : 0;
   // ───────────────────────────────── Counts and blobs
   function calcNumBlobs() {
     const area = W * H;
-    return Math.max(20, Math.min(80, Math.round(area / 30000)));
+    return Math.max(20, Math.min(80, Math.round(area / 30000 * 0.85)));
   }
 
   let blobs = [];
