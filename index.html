@@ -705,6 +705,17 @@ window.addEventListener('scroll', () => {
 });
 </script>
 
+<script>
+// dynamically fix viewport height on iOS
+function fixViewportHeight() {
+  const svh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty("--svh", `${svh * 100}px`);
+}
+window.addEventListener("resize", fixViewportHeight);
+window.addEventListener("orientationchange", fixViewportHeight);
+fixViewportHeight(); // run once on load
+</script>
+
 </body>
 
 </html>

@@ -2,6 +2,16 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Fix for iOS Safari 100vh bug — sets a dynamic smallest viewport height */
+:root {
+  --svh: 100vh; /* fallback for browsers that don't support JS variable setup */
+}
+
+@supports (height: 100svh) {
+  :root {
+    --svh: 100svh; /* modern browsers (iOS 17+, Chrome 120+) */
+  }
+}
 
 .stretched-link {
     background: transparent;
@@ -304,7 +314,7 @@ main, nav, footer {
       top: 0;
       left: 0;
       width: 100vw;
-      height: 100vh;
+      height: var(--svh); /* 👈 use corrected viewport height */
       z-index: -2;
       pointer-events: none;
       transition: opacity 0.2s linear;

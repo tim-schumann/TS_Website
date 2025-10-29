@@ -4,15 +4,15 @@ function initLiquidBackground() {
   canvas.id = "liquid-bg";
   document.body.prepend(canvas);
   Object.assign(canvas.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    width: "100vw",
-    height: "100vh",
-    zIndex: "-1",
-    pointerEvents: "none",
-    background: "#fff",
-  });
+  position: "fixed",
+  top: "0",
+  left: "0",
+  width: "100vw",
+  height: "var(--svh)", // 👈 use CSS variable instead of hardcoded vh
+  zIndex: "-1",
+  pointerEvents: "none",
+  background: "#fff",
+});
 
   const ctx = canvas.getContext("2d", { alpha: true });
   ctx.imageSmoothingEnabled = true;
