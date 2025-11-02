@@ -38,9 +38,9 @@ const isDesktopChrome = !isMobile && isChrome;
 
 // ───────────────────────────────
 // BASE GRAVITY by browser type
-if (isMobileSafari) baseForce = 0.00008;
-else if (isMobileChrome) baseForce = 0.00025;
-else if (isDesktopChrome) baseForce = 0.003;
+if (isMobileSafari) baseForce = 0.00015;
+else if (isMobileChrome) baseForce = 0.0005;
+else if (isDesktopChrome) baseForce = 0.0008;
 else baseForce = 0.001; // Safari / Firefox / others desktop
 
 // ───────────────────────────────
