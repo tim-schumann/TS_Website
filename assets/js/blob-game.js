@@ -9,7 +9,7 @@ function initLiquidBackgroundGame() {
     top: 0,
     left: 0,
     width: "100vw",
-    height: "100vh",
+    height: "var(--svh)",
     zIndex: "-1",
     pointerEvents: "none",
     background: "#fff",
@@ -18,6 +18,7 @@ function initLiquidBackgroundGame() {
   const ctx = canvas.getContext("2d", { alpha: true });
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
+  let DPR = window.devicePixelRatio || 1;
 
   // ───────────────────────────────
   // 🌐 DEVICE / BROWSER
@@ -27,10 +28,23 @@ function initLiquidBackgroundGame() {
   const isSafari  = /^((?!chrome|android).)*safari/i.test(ua);
   const isChrome  = /crios|chrome|chromium/i.test(ua);
   const isFirefox = /firefox/i.test(ua);
-  const isDesktop = !isMobile;
 
-  let W = (canvas.width = innerWidth);
-  let H = (canvas.height = innerHeight);
+  let W = innerWidth;
+  let H = innerHeight;
+
+  function resizeMainCanvas() {
+    DPR = window.devicePixelRatio || 1;
+    W = innerWidth;
+    H = innerHeight;
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(DPR, DPR);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+  }
+
+  resizeMainCanvas();
 
   // ───────────────────────────────
   // ⚙️ GLOBAL PARAMETERS
@@ -39,55 +53,130 @@ function initLiquidBackgroundGame() {
   const AREA_DIVISOR = 30000;
   const BLOB_REDUCTION = 0.85;
 
-  // base gravity per browser (+30 %)
-  let baseForce = 0.0013;
-  if (isMobile && isSafari) baseForce = 0.0001;
-  else if (isMobile && isChrome) baseForce = 0.00032;
-  else if (isDesktop && isChrome) baseForce = 0.00078;
-  else baseForce = 0.0013;
+  let baseForce = 0.001;
+  const isMobileSafari  = isMobile && isSafari;
+  const isMobileChrome  = isMobile && isChrome;
+  const isDesktopChrome = !isMobile && isChrome;
+  if (isMobileSafari) baseForce = 0.00015;
+  else if (isMobileChrome) baseForce = 0.0005;
+  else if (isDesktopChrome) baseForce = 0.0008;
+  else baseForce = 0.001;
 
-  const screenScale = Math.min(1.5, Math.max(0.7, innerWidth / REF_WIDTH));
-  const GRAVITY_SCALE = Math.min(1.5, Math.max(0.7, screenScale));
-  const SIZE_SCALE    = Math.min(1.5, Math.max(0.7, screenScale));
+  const scaleFactor = Math.min(1.5, Math.max(0.7, innerWidth / REF_WIDTH));
+  let GRAVITY_SCALE = scaleFactor;
+  let SIZE_SCALE    = scaleFactor;
+  GRAVITY_SCALE = Math.min(1.5, Math.max(0.7, GRAVITY_SCALE));
+  SIZE_SCALE    = Math.min(1.5, Math.max(0.7, SIZE_SCALE));
 
-  let MOUSE_FORCE = baseForce * GRAVITY_SCALE;
+  const CSS_INCH = 96;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const screenWidthCSS = ((window.screen && window.screen.width) || innerWidth) / devicePixelRatio;
+  const screenHeightCSS = ((window.screen && window.screen.height) || innerHeight) / devicePixelRatio;
+  const approxDiagonalInches = Math.hypot(screenWidthCSS, screenHeightCSS) / CSS_INCH;
+  const requiresPressForGravity = isMobile && approxDiagonalInches < 10;
+
+  const BASE_GRAVITY = baseForce * GRAVITY_SCALE;
+  const ACTIVE_FORCE_MULTIPLIER = isMobile ? 2 : 1;
+  let gravityArmed = !requiresPressForGravity;
+  let MOUSE_FORCE = 0;
+
+  function setGravityState(forceActive) {
+    gravityArmed = forceActive || !requiresPressForGravity;
+    const multiplier = gravityArmed ? ACTIVE_FORCE_MULTIPLIER : 0;
+    MOUSE_FORCE = BASE_GRAVITY * multiplier;
+  }
+
+  setGravityState(gravityArmed);
+
   const MOBILE_RADIUS_SCALE = (isMobile ? 0.7 : 1) * SIZE_SCALE;
   const MOBILE_MARGIN       = isMobile ? 0.1 : 0;
-
-  if (isMobile) {
-    window.addEventListener("pointerdown", () => {
-      MOUSE_FORCE = baseForce * GRAVITY_SCALE * 1.25;
-    });
-    window.addEventListener("pointerup", () => {
-      MOUSE_FORCE = baseForce * GRAVITY_SCALE;
-    });
-  }
 
   const BLUR_LOW = isSafari ? 35 : isFirefox ? 3 : 1;
   const BLUR_UP  = isSafari ? 60 : isFirefox ? 5 : 3;
 
-  function calcNumBlobs() {
-    const area = W * H;
-    const baseCount = (area / AREA_DIVISOR) * BLOB_REDUCTION;
-    return Math.max(20, Math.min(80, Math.round(baseCount)));
-  }
-
-  // ───────────────────────────────
+// ───────────────────────────────
 // 🕹️ GAME STATE  &  LEVEL LOGIC
 // ───────────────────────────────
+const LEVEL_DURATION = 60;
+const PROGRESS_BAR_HEIGHT = 6;
+const WARNING_FLASH_DURATION = 0.8;
+const WARNING_FLASH_ALPHA = 0.3; // half the strength of the final overlay
+const LEVEL_BANNER_FADE_IN_SPEED = 2;  // alpha per second
+const LEVEL_BANNER_FADE_OUT_SPEED = 1.2;
+const LEVEL_BANNER_MAX_BLUR = 35;
+const LEVEL_BANNER_BLUR_SPEED = 45;
 let level = 1;
-let timeLeft = 60;             // back to 60 s
+let timeLeft = LEVEL_DURATION;
 let gameOver = false;
 let driftMultiplier = 1.0;
+let warningFlashTimer = 0;
+let lastWarningSecond = null;
+let uiSuppressed = false;
+const nextLevelBanner = {
+  number: null,
+  alpha: 0,
+  visible: false,
+  fadingOut: false,
+  blur: 0,
+};
 
-// 🎨 Le Corbusier palette (used from level 2 on)
+// 🎨 Le Corbusier-inspired palette (darker tones stay visible on white)
 const corbusierColors = [
-  "#C7C4B9", "#9BB1A0", "#BDA676",
-  "#7A8CA0", "#A07E6A", "#B2B6AD"
+  "#4C5B61", // gris foncé blue
+  "#6F4E37", // terre brûlée
+  "#3E6257", // vert anglais
+  "#354B5E", // bleu outremer
+  "#5A4A5C", // violet sombre
+  "#5C604D"  // olive patiné
 ];
+
+function hexToRgb(hex) {
+  const value = hex.replace("#", "");
+  const bigint = parseInt(value, 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+}
+
+function tonedColorFromHex(hex) {
+  const rgb = hexToRgb(hex);
+  const mix = 0.85; // darken slightly to keep readability on white
+  return {
+    r: Math.round(rgb.r * mix),
+    g: Math.round(rgb.g * mix),
+    b: Math.round(rgb.b * mix),
+  };
+}
+
 function currentBlobColor() {
-  return level === 1 ? "#000000" :
-         corbusierColors[(level - 2) % corbusierColors.length];
+  if (level === 1) return { r: 0, g: 0, b: 0 };
+  const hex = corbusierColors[(level - 2) % corbusierColors.length];
+  return tonedColorFromHex(hex);
+}
+
+function rgbaFromColor(color, alpha) {
+  const clamped = Math.max(0, Math.min(1, alpha));
+  return `rgba(${color.r},${color.g},${color.b},${clamped})`;
+}
+
+function drawTimerProgressBar(ctxRef) {
+  const progress = Math.max(0, Math.min(1, timeLeft / LEVEL_DURATION));
+  const barWidth = W * progress;
+  const color = currentBlobColor();
+  ctxRef.save();
+  ctxRef.fillStyle = rgbaFromColor(color, 0.85);
+  ctxRef.fillRect(0, H - PROGRESS_BAR_HEIGHT, barWidth, PROGRESS_BAR_HEIGHT);
+  ctxRef.restore();
+}
+
+function showNextLevelBanner(nextNumber) {
+  nextLevelBanner.number = nextNumber;
+  nextLevelBanner.visible = true;
+  nextLevelBanner.alpha = 0;
+  nextLevelBanner.blur = 0;
+  nextLevelBanner.fadingOut = false;
 }
 
 // scaling helpers for size & count per level
@@ -103,31 +192,44 @@ function countScaleForLevel(lvl) {
 // HUD
 const hud = document.createElement("div");
 Object.assign(hud.style, {
-  position: "fixed", bottom: "10px", left: "10px",
+  position: "fixed",
+  bottom: "10px",
+  left: "50%",
+  transform: "translateX(-50%)",
   color: "#000",
   fontFamily: "Helvetica, Arial, sans-serif",
-  fontSize: "16px", fontWeight: "600",
+  fontSize: "16px",
+  fontWeight: "300",
   zIndex: "10",
-  background: "rgba(255,255,255,0.3)",
-  padding: "6px 10px", borderRadius: "8px",
-  backdropFilter: "blur(4px)"
+  background: "transparent",
+  padding: "6px 14px",
+  borderRadius: "999px",
+  backdropFilter: "blur(4px)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px"
 });
 document.body.appendChild(hud);
+
+function syncHudVisibility() {
+  hud.style.display = (!gameOver && !uiSuppressed) ? "inline-flex" : "none";
+}
 
 // 🔁 Retry button — same visual style as HUD
 const retryBtn = document.createElement("button");
 retryBtn.textContent = "Retry";
 Object.assign(retryBtn.style, {
   position: "fixed",
-  top: "50%", left: "50%",
-  transform: "translate(-50%, -50%)",
+  bottom: "10px",
+  left: "50%",
+  transform: "translateX(-50%)",
   fontFamily: "Helvetica, Arial, sans-serif",
   fontSize: "16px", fontWeight: "600",
   background: "rgba(255,255,255,0.3)",
   color: "#000",
-  border: "2px solid #000",
-  borderRadius: "8px",
-  padding: "8px 18px",
+  border: "none",
+  borderRadius: "999px",
+  padding: "6px 14px",
   backdropFilter: "blur(4px)",
   cursor: "pointer",
   zIndex: "20",
@@ -138,43 +240,38 @@ document.body.appendChild(retryBtn);
 retryBtn.onclick = () => {
   level = 1;
   driftMultiplier = 1;
-  timeLeft = 60;
+  timeLeft = LEVEL_DURATION;
+  warningFlashTimer = 0;
+  lastWarningSecond = null;
+  nextLevelBanner.visible = false;
+  nextLevelBanner.alpha = 0;
+  nextLevelBanner.number = null;
+  nextLevelBanner.fadingOut = false;
+  nextLevelBanner.blur = 0;
   gameOver = false;
+  uiSuppressed = false;
   blackoutAlpha = 0;
   blobs = [];
   generateBlobs(calcNumBlobs());
   updateHUD();
   retryBtn.style.display = "none";
-  startTimer();
+  syncHudVisibility();
 };
 
 function updateHUD() {
   if (gameOver) {
-    hud.style.color = "#fff";
-    hud.style.background = "rgba(180,0,0,0.8)";
-    hud.textContent = "GAME OVER";
-    retryBtn.style.display = "block";
-  } else {
-    hud.style.color = "#000";
-    hud.style.background = "rgba(255,255,255,0.3)";
-    hud.textContent = `⏱ ${timeLeft}s  |  Level ${level}`;
+    retryBtn.style.display = "inline-flex";
+    syncHudVisibility();
+    return;
   }
-}
 
-function startTimer() {
-  clearInterval(window.gameTimer);
-  window.gameTimer = setInterval(() => {
-    if (gameOver) return clearInterval(window.gameTimer);
-    timeLeft--;
-    updateHUD();
-    if (timeLeft <= 0 && !explosion) {
-      gameOver = true;
-      blackoutAlpha = 0;
-      clearInterval(window.gameTimer);
-    }
-  }, 1000);
+  hud.style.color = rgbaFromColor(currentBlobColor(), 1);
+  hud.style.background = "transparent";
+  const displayTime = Math.max(0, Math.ceil(timeLeft));
+  hud.textContent = `${displayTime}s  |  Level ${level}`;
+  retryBtn.style.display = "none";
+  syncHudVisibility();
 }
-startTimer();
 updateHUD();
 
 // ───────────────────────────────
@@ -221,10 +318,19 @@ function generateBlobs(targetCount) {
 function handleLevelUp() {
   level++;
   driftMultiplier *= 1.08;
-  timeLeft = 60;
+  timeLeft = LEVEL_DURATION;
+  warningFlashTimer = 0;
+  lastWarningSecond = null;
+  if (nextLevelBanner.visible) {
+    nextLevelBanner.fadingOut = true;
+    nextLevelBanner.blur = 0;
+  }
+  uiSuppressed = false;
+  syncHudVisibility();
   blackoutAlpha = 0;
   generateBlobs(calcNumBlobs());
-  for (const b of blobs) b.color = currentBlobColor();
+  const levelColor = currentBlobColor();
+  for (const b of blobs) b.color = { ...levelColor };
   updateHUD();
 }
 
@@ -251,8 +357,7 @@ function handleLevelUp() {
   updateOffscreenSizes();
 
   window.addEventListener("resize", () => {
-    W = canvas.width = innerWidth;
-    H = canvas.height = innerHeight;
+    resizeMainCanvas();
     updateOffscreenSizes();
     generateBlobs(calcNumBlobs());
   });
@@ -261,10 +366,41 @@ function handleLevelUp() {
   // PHYSICS / DRAW / EXPLOSION
   // ───────────────────────────────
   const mouse = { x: W / 2, y: H / 2 };
-  window.addEventListener("mousemove", (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-  });
+  const hasPointerEvents = "PointerEvent" in window;
+
+  const updatePointerPosition = (evt) => {
+    if (!evt) return;
+    mouse.x = evt.clientX;
+    mouse.y = evt.clientY;
+  };
+
+  const armGravityOnPointerDown = (evt) => {
+    updatePointerPosition(evt);
+    setGravityState(true);
+  };
+
+  const disarmGravityIfNeeded = () => {
+    if (requiresPressForGravity) setGravityState(false);
+  };
+
+  if (hasPointerEvents) {
+    window.addEventListener("pointermove", updatePointerPosition, { passive: true });
+    window.addEventListener("pointerdown", armGravityOnPointerDown, { passive: true });
+    ["pointerup", "pointercancel", "pointerleave"].forEach((type) => {
+      window.addEventListener(type, disarmGravityIfNeeded, { passive: true });
+    });
+  } else {
+    window.addEventListener("mousemove", updatePointerPosition, { passive: true });
+    window.addEventListener("touchstart", (e) => {
+      if (e.touches && e.touches.length) updatePointerPosition(e.touches[0]);
+      setGravityState(true);
+    }, { passive: true });
+    window.addEventListener("touchmove", (e) => {
+      if (e.touches && e.touches.length) updatePointerPosition(e.touches[0]);
+    }, { passive: true });
+    window.addEventListener("touchend", disarmGravityIfNeeded, { passive: true });
+    window.addEventListener("touchcancel", disarmGravityIfNeeded, { passive: true });
+  }
 
   let explosion = null;
   let blackoutAlpha = 0;
@@ -278,6 +414,8 @@ function handleLevelUp() {
       growthRate: 1.9,
       targetR: Math.hypot(W, H),
     };
+    uiSuppressed = true;
+    syncHudVisibility();
   }
 
   function drawOffscreen() {
@@ -293,9 +431,12 @@ function handleLevelUp() {
       const cx = b.x * s;
       const cy = b.y * s;
       const rr = Math.max(8, b.r * s * 1.5);
+      const innerAlpha = b.brightness * b.alpha;
+      const midAlpha = Math.max(0.18, innerAlpha - 0.15);
       const grad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, rr);
-      grad.addColorStop(0, `${b.color}ee`);
-      grad.addColorStop(0.8, `${b.color}00`);
+      grad.addColorStop(0, rgbaFromColor(b.color, innerAlpha));
+      grad.addColorStop(0.45, rgbaFromColor(b.color, midAlpha));
+      grad.addColorStop(1, rgbaFromColor(b.color, 0));
       offCtx.fillStyle = grad;
       offCtx.beginPath();
       offCtx.arc(cx, cy, rr, 0, Math.PI * 2);
@@ -307,9 +448,12 @@ function handleLevelUp() {
       const cx = b.x * s;
       const cy = b.y * s;
       const rr = Math.max(8, b.r * s * 1.5);
+      const innerAlpha = Math.min(1.0, (b.brightness + 0.4) * (b.alpha + 0.3));
+      const midAlpha = Math.max(0.25, innerAlpha - 0.1);
       const grad = offCtx.createRadialGradient(cx, cy, 0, cx, cy, rr);
-      grad.addColorStop(0, "rgba(0,0,0,1)");
-      grad.addColorStop(1, "rgba(0,0,0,0)");
+      grad.addColorStop(0, rgbaFromColor(b.color, innerAlpha));
+      grad.addColorStop(0.45, rgbaFromColor(b.color, midAlpha));
+      grad.addColorStop(1, rgbaFromColor(b.color, 0));
       offCtx.fillStyle = grad;
       offCtx.beginPath();
       offCtx.arc(cx, cy, rr, 0, Math.PI * 2);
@@ -338,6 +482,29 @@ function handleLevelUp() {
     ctx.drawImage(tmp, 0, 0, W, H);
     ctx.restore();
 
+    if (!uiSuppressed && !gameOver) {
+      drawTimerProgressBar(ctx);
+    }
+
+    if (!uiSuppressed && !gameOver && warningFlashTimer > 0) {
+      const flashStrength = warningFlashTimer / WARNING_FLASH_DURATION;
+      ctx.fillStyle = `rgba(180,0,0,${WARNING_FLASH_ALPHA * flashStrength})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (nextLevelBanner.visible && nextLevelBanner.alpha > 0) {
+      ctx.save();
+      ctx.globalAlpha = nextLevelBanner.alpha;
+      ctx.filter = nextLevelBanner.blur > 0 ? `blur(${nextLevelBanner.blur}px)` : "none";
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold ${Math.round(H * 0.25)}px Helvetica, Arial, sans-serif`;
+      const label = nextLevelBanner.number != null ? String(nextLevelBanner.number) : "";
+      ctx.fillText(label, W / 2, H / 2);
+      ctx.restore();
+    }
+
     if (gameOver) {
       ctx.fillStyle = "rgba(180,0,0,0.6)";
       ctx.fillRect(0, 0, W, H);
@@ -350,7 +517,45 @@ function handleLevelUp() {
 
   let time = 0;
   function stepPhysics(dt) {
+    warningFlashTimer = Math.max(0, warningFlashTimer - dt);
+    if (nextLevelBanner.visible) {
+      if (nextLevelBanner.fadingOut) {
+        nextLevelBanner.alpha = Math.max(0, nextLevelBanner.alpha - LEVEL_BANNER_FADE_OUT_SPEED * dt);
+        nextLevelBanner.blur = Math.min(LEVEL_BANNER_MAX_BLUR, nextLevelBanner.blur + LEVEL_BANNER_BLUR_SPEED * dt);
+        if (nextLevelBanner.alpha === 0) {
+          nextLevelBanner.visible = false;
+          nextLevelBanner.number = null;
+          nextLevelBanner.fadingOut = false;
+          nextLevelBanner.blur = 0;
+        }
+      } else {
+        nextLevelBanner.alpha = Math.min(1, nextLevelBanner.alpha + LEVEL_BANNER_FADE_IN_SPEED * dt);
+        nextLevelBanner.blur = Math.max(0, nextLevelBanner.blur - LEVEL_BANNER_BLUR_SPEED * dt);
+      }
+    }
     if (gameOver) return;
+
+    timeLeft = Math.max(0, timeLeft - dt);
+    const warningSecond = Math.ceil(timeLeft);
+    if (warningSecond <= 5 && warningSecond > 0 && warningSecond !== lastWarningSecond) {
+      warningFlashTimer = WARNING_FLASH_DURATION;
+      lastWarningSecond = warningSecond;
+    }
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      if (!gameOver) {
+        gameOver = true;
+        blackoutAlpha = 0;
+        explosion = null;
+        nextLevelBanner.visible = false;
+        nextLevelBanner.alpha = 0;
+        nextLevelBanner.number = null;
+        nextLevelBanner.fadingOut = false;
+        nextLevelBanner.blur = 0;
+      }
+      return;
+    }
 
     time += dt;
 
@@ -362,8 +567,9 @@ function handleLevelUp() {
         blackoutAlpha = 1;
         explosion.active = false;
         blobs = [];
+        showNextLevelBanner(level + 1);
         setTimeout(handleLevelUp, 2000);
-        }
+      }
       return;
     }
 
