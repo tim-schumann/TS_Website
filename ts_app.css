@@ -329,6 +329,9 @@ main, nav, footer {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* --- Shared menu style --- */
