@@ -398,6 +398,9 @@ main, nav, footer {
   white-space: nowrap;
   min-width: auto;
   flex-shrink: 0;
+  -webkit-touch-callout: none; /* prevent long-press menu on iOS */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .order-4 .pill-btn {
