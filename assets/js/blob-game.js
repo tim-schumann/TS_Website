@@ -105,6 +105,7 @@ const LEVEL_BANNER_FADE_IN_SPEED = 2;  // alpha per second
 const LEVEL_BANNER_FADE_OUT_SPEED = 1.2;
 const LEVEL_BANNER_MAX_BLUR = 35;
 const LEVEL_BANNER_BLUR_SPEED = 45;
+const LEVEL_RESPAWN_DIM_DURATION = 0.5;
 let level = 1;
 let timeLeft = LEVEL_DURATION;
 let gameOver = false;
@@ -112,6 +113,9 @@ let driftMultiplier = 1.0;
 let warningFlashTimer = 0;
 let lastWarningSecond = null;
 let uiSuppressed = false;
+let infoModalOpen = false;
+let respawnDimTimer = 0;
+let respawnDimColor = { r: 0, g: 0, b: 0 };
 const nextLevelBanner = {
   number: null,
   alpha: 0,
@@ -211,8 +215,37 @@ Object.assign(hud.style, {
 });
 document.body.appendChild(hud);
 
+const infoButton = document.getElementById("blob-info-btn");
+const infoModal = document.getElementById("blob-info-modal");
+const infoCloseBtn = infoModal ? infoModal.querySelector(".game-info-close") : null;
+
+function toggleInfoModal(shouldShow) {
+  if (!infoModal) return;
+  if (shouldShow) {
+    infoModal.classList.add("visible");
+    document.body.style.overflow = "hidden";
+    infoModalOpen = true;
+  } else {
+    infoModal.classList.remove("visible");
+    document.body.style.overflow = "";
+    infoModalOpen = false;
+  }
+}
+
+if (infoButton) infoButton.addEventListener("click", () => toggleInfoModal(true));
+if (infoCloseBtn) infoCloseBtn.addEventListener("click", () => toggleInfoModal(false));
+if (infoModal) {
+  infoModal.addEventListener("click", (evt) => {
+    if (evt.target === infoModal) toggleInfoModal(false);
+  });
+}
+window.addEventListener("keydown", (evt) => {
+  if (evt.key === "Escape" && infoModal?.classList.contains("visible")) toggleInfoModal(false);
+});
+
 function syncHudVisibility() {
-  hud.style.display = (!gameOver && !uiSuppressed) ? "inline-flex" : "none";
+  const visible = !gameOver && !uiSuppressed;
+  hud.style.display = visible ? "inline-flex" : "none";
 }
 
 // 🔁 Retry button — same visual style as HUD
@@ -250,6 +283,7 @@ retryBtn.onclick = () => {
   nextLevelBanner.blur = 0;
   gameOver = false;
   uiSuppressed = false;
+  respawnDimTimer = 0;
   blackoutAlpha = 0;
   blobs = [];
   generateBlobs(calcNumBlobs());
@@ -265,7 +299,15 @@ function updateHUD() {
     return;
   }
 
-  hud.style.color = rgbaFromColor(currentBlobColor(), 1);
+  const levelColor = currentBlobColor();
+  const infoBtn = document.getElementById("blob-info-btn");
+  if (infoBtn) {
+    const color = rgbaFromColor(levelColor, 1);
+    infoBtn.style.backgroundColor = "transparent";
+    infoBtn.style.borderColor = color;
+    infoBtn.style.color = color;
+  }
+  hud.style.color = rgbaFromColor(levelColor, 1);
   hud.style.background = "transparent";
   const displayTime = Math.max(0, Math.ceil(timeLeft));
   hud.textContent = `${displayTime}s  |  Level ${level}`;
@@ -331,6 +373,8 @@ function handleLevelUp() {
   generateBlobs(calcNumBlobs());
   const levelColor = currentBlobColor();
   for (const b of blobs) b.color = { ...levelColor };
+  respawnDimTimer = LEVEL_RESPAWN_DIM_DURATION;
+  respawnDimColor = { ...levelColor };
   updateHUD();
 }
 
@@ -402,8 +446,9 @@ function handleLevelUp() {
     window.addEventListener("touchcancel", disarmGravityIfNeeded, { passive: true });
   }
 
-  let explosion = null;
-  let blackoutAlpha = 0;
+let explosion = null;
+let blackoutAlpha = 0;
+let blackoutColor = { r: 0, g: 0, b: 0 };
 
   function startExplosion() {
     if (gameOver) return;
@@ -416,6 +461,7 @@ function handleLevelUp() {
     };
     uiSuppressed = true;
     syncHudVisibility();
+    blackoutColor = { ...currentBlobColor() };
   }
 
   function drawOffscreen() {
@@ -461,7 +507,7 @@ function handleLevelUp() {
     }
 
     if (blackoutAlpha > 0) {
-      offCtx.fillStyle = `rgba(0,0,0,${blackoutAlpha})`;
+      offCtx.fillStyle = rgbaFromColor(blackoutColor, blackoutAlpha);
       offCtx.fillRect(0, 0, SIM_W, SIM_H);
     }
   }
@@ -492,6 +538,12 @@ function handleLevelUp() {
       ctx.fillRect(0, 0, W, H);
     }
 
+    if (respawnDimTimer > 0) {
+      const dimAlpha = (respawnDimTimer / LEVEL_RESPAWN_DIM_DURATION) * 0.6;
+      ctx.fillStyle = rgbaFromColor(respawnDimColor, dimAlpha);
+      ctx.fillRect(0, 0, W, H);
+    }
+
     if (nextLevelBanner.visible && nextLevelBanner.alpha > 0) {
       ctx.save();
       ctx.globalAlpha = nextLevelBanner.alpha;
@@ -517,6 +569,8 @@ function handleLevelUp() {
 
   let time = 0;
   function stepPhysics(dt) {
+    respawnDimTimer = Math.max(0, respawnDimTimer - dt);
+    if (infoModalOpen) return;
     warningFlashTimer = Math.max(0, warningFlashTimer - dt);
     if (nextLevelBanner.visible) {
       if (nextLevelBanner.fadingOut) {
@@ -553,6 +607,7 @@ function handleLevelUp() {
         nextLevelBanner.number = null;
         nextLevelBanner.fadingOut = false;
         nextLevelBanner.blur = 0;
+        respawnDimTimer = 0;
       }
       return;
     }
