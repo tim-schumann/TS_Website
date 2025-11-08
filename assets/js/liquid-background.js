@@ -58,21 +58,25 @@ GRAVITY_SCALE = Math.min(1.5, Math.max(0.7, GRAVITY_SCALE));
 SIZE_SCALE    = Math.min(1.5, Math.max(0.7, SIZE_SCALE));
 
 // final gravity
-let MOUSE_FORCE = baseForce * GRAVITY_SCALE;
+const CSS_INCH = 96;
+const devicePixelRatio = window.devicePixelRatio || 1;
+const screenWidthCSS = ((window.screen && window.screen.width) || innerWidth) / devicePixelRatio;
+const screenHeightCSS = ((window.screen && window.screen.height) || innerHeight) / devicePixelRatio;
+const approxDiagonalInches = Math.hypot(screenWidthCSS, screenHeightCSS) / CSS_INCH;
+const requiresPressForGravity = isMobile && approxDiagonalInches < 10;
 
-// ───────────────────────────────
-// Touch-activation: on phones only increase gravity after user tap/click
-if (isMobile) {
-  let touchActive = false;
-  window.addEventListener("pointerdown", () => {
-    touchActive = true;
-    MOUSE_FORCE = baseForce * GRAVITY_SCALE * 3; // +200% stronger after touch
-  });
-  window.addEventListener("pointerup", () => {
-    touchActive = false;
-    MOUSE_FORCE = baseForce * GRAVITY_SCALE;        // reset
-  });
+const BASE_GRAVITY = baseForce * GRAVITY_SCALE;
+const ACTIVE_FORCE_MULTIPLIER = isMobile ? 2 : 1; // +100% gravity boost on mobile
+let gravityArmed = !requiresPressForGravity;
+let MOUSE_FORCE = 0;
+
+function setGravityState(forceActive) {
+  gravityArmed = forceActive || !requiresPressForGravity;
+  const multiplier = gravityArmed ? ACTIVE_FORCE_MULTIPLIER : 0;
+  MOUSE_FORCE = BASE_GRAVITY * multiplier;
 }
+
+setGravityState(gravityArmed);
 
 // ───────────────────────────────
 // apply blob size scaling globally
@@ -156,10 +160,41 @@ const MOBILE_MARGIN       = isMobile ? 0.1 : 0;
   const BLUR_UP  = isSafari ? 60 : isFirefox ? 5 : 3;
 
   const mouse = { x: W / 2, y: H / 2 };
-  window.addEventListener("mousemove", (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-  });
+  const hasPointerEvents = "PointerEvent" in window;
+
+  const updatePointerPosition = (evt) => {
+    if (!evt) return;
+    mouse.x = evt.clientX;
+    mouse.y = evt.clientY;
+  };
+
+  const armGravityOnPointerDown = (evt) => {
+    updatePointerPosition(evt);
+    setGravityState(true);
+  };
+
+  const disarmGravityIfNeeded = () => {
+    if (requiresPressForGravity) setGravityState(false);
+  };
+
+  if (hasPointerEvents) {
+    window.addEventListener("pointermove", updatePointerPosition, { passive: true });
+    window.addEventListener("pointerdown", armGravityOnPointerDown, { passive: true });
+    ["pointerup", "pointercancel", "pointerleave"].forEach((type) => {
+      window.addEventListener(type, disarmGravityIfNeeded, { passive: true });
+    });
+  } else {
+    window.addEventListener("mousemove", updatePointerPosition, { passive: true });
+    window.addEventListener("touchstart", (e) => {
+      if (e.touches && e.touches.length) updatePointerPosition(e.touches[0]);
+      setGravityState(true);
+    }, { passive: true });
+    window.addEventListener("touchmove", (e) => {
+      if (e.touches && e.touches.length) updatePointerPosition(e.touches[0]);
+    }, { passive: true });
+    window.addEventListener("touchend", disarmGravityIfNeeded, { passive: true });
+    window.addEventListener("touchcancel", disarmGravityIfNeeded, { passive: true });
+  }
 
   // ───────────────────────────────── Explosion via LARGEST blob
   // phases: null -> 'grow' (largest blob expands & darkens) -> blackout hold -> fade white -> respawn
