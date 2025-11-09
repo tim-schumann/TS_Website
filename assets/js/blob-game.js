@@ -300,12 +300,11 @@ function updateHUD() {
   }
 
   const levelColor = currentBlobColor();
-  const infoBtn = document.getElementById("blob-info-btn");
-  if (infoBtn) {
+  if (infoButton) {
     const color = rgbaFromColor(levelColor, 1);
-    infoBtn.style.backgroundColor = "transparent";
-    infoBtn.style.borderColor = color;
-    infoBtn.style.color = color;
+    infoButton.style.backgroundColor = "transparent";
+    infoButton.style.borderColor = color;
+    infoButton.style.color = color;
   }
   hud.style.color = rgbaFromColor(levelColor, 1);
   hud.style.background = "transparent";
@@ -400,10 +399,18 @@ function handleLevelUp() {
   }
   updateOffscreenSizes();
 
+  const RESIZE_REGEN_THRESHOLD_W = 80;
+  const RESIZE_REGEN_THRESHOLD_H = 120;
   window.addEventListener("resize", () => {
+    const prevW = W;
+    const prevH = H;
     resizeMainCanvas();
     updateOffscreenSizes();
-    generateBlobs(calcNumBlobs());
+    const widthDelta = Math.abs(W - prevW);
+    const heightDelta = Math.abs(H - prevH);
+    if (widthDelta > RESIZE_REGEN_THRESHOLD_W || heightDelta > RESIZE_REGEN_THRESHOLD_H) {
+      generateBlobs(calcNumBlobs());
+    }
   });
 
   // ───────────────────────────────

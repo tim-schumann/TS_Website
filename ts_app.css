@@ -598,3 +598,21 @@ main, nav, footer {
   font-weight: 600;
   cursor: pointer;
 }
+
+.blob-game-page {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.blob-game-page * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.blob-game-page .game-info-dialog {
+  touch-action: auto;
+}
