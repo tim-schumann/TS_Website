@@ -29,6 +29,32 @@ function initLiquidBackgroundGame() {
   const isChrome  = /crios|chrome|chromium/i.test(ua);
   const isFirefox = /firefox/i.test(ua);
 
+  function disableMobileLongPressArtifacts() {
+    if (!isMobile) return;
+    const targets = [document.documentElement, document.body].filter(Boolean);
+    const previousStyles = targets.map((el) => ({
+      el,
+      userSelect: el.style.userSelect,
+      webkitUserSelect: el.style.webkitUserSelect,
+      webkitTouchCallout: el.style.webkitTouchCallout,
+      touchAction: el.style.touchAction,
+    }));
+    targets.forEach((el) => {
+      el.style.userSelect = "none";
+      el.style.webkitUserSelect = "none";
+      el.style.webkitTouchCallout = "none";
+      el.style.touchAction = "manipulation";
+    });
+    window.addEventListener("beforeunload", () => {
+      previousStyles.forEach(({ el, userSelect, webkitUserSelect, webkitTouchCallout, touchAction }) => {
+        el.style.userSelect = userSelect;
+        el.style.webkitUserSelect = webkitUserSelect;
+        el.style.webkitTouchCallout = webkitTouchCallout;
+        el.style.touchAction = touchAction;
+      });
+    }, { once: true });
+  }
+
   let W = innerWidth;
   let H = innerHeight;
 
@@ -45,6 +71,7 @@ function initLiquidBackgroundGame() {
   }
 
   resizeMainCanvas();
+  disableMobileLongPressArtifacts();
 
   // ───────────────────────────────
   // ⚙️ GLOBAL PARAMETERS
@@ -75,7 +102,8 @@ function initLiquidBackgroundGame() {
   const approxDiagonalInches = Math.hypot(screenWidthCSS, screenHeightCSS) / CSS_INCH;
   const requiresPressForGravity = isMobile && approxDiagonalInches < 10;
 
-  const BASE_GRAVITY = baseForce * GRAVITY_SCALE;
+  const PHONE_GRAVITY_BOOST = requiresPressForGravity ? 1.2 : 1;
+  const BASE_GRAVITY = baseForce * GRAVITY_SCALE * PHONE_GRAVITY_BOOST;
   const ACTIVE_FORCE_MULTIPLIER = isMobile ? 2 : 1;
   let gravityArmed = !requiresPressForGravity;
   let MOUSE_FORCE = 0;
