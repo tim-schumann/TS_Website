@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /scripts/
+Disallow: /ari_test.html
+Disallow: /scripts.html
+Allow: /
+
+Sitemap: https://tim-schumann.com/sitemap.xml
